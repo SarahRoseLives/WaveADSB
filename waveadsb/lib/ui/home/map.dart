@@ -13,9 +13,16 @@ import 'dart:math' as math; // For marker rotation
 const LatLng defaultCenter =
     LatLng(41.4993, -81.6944); // Cleveland as a center point
 
-class MapArea extends StatelessWidget {
+class MapArea extends StatefulWidget {
   final MapController mapController;
   const MapArea({required this.mapController, super.key});
+
+  @override
+  State<MapArea> createState() => _MapAreaState();
+}
+
+class _MapAreaState extends State<MapArea> {
+  bool _hasAutoCentered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +31,35 @@ class MapArea extends StatelessWidget {
     final aircraftList = adsbService.aircraft;
     final homeLoc = settings.homeLocation;
 
-    // --- Build Markers ---
+    // --- 4. Auto-center logic ---
+    if (!_hasAutoCentered && aircraftList.isNotEmpty) {
+
+      // ---
+      // --- FIX 1: This is the correct way to get "first or null"
+      // ---
+      // 1. Filter the list for aircraft that have a position
+      final aircraftWithPosition = aircraftList.where((ac) => ac.hasPosition);
+      // 2. Check if the filtered list is empty. If not, get the first one.
+      final Aircraft? firstAircraft =
+          aircraftWithPosition.isEmpty ? null : aircraftWithPosition.first;
+
+      if (firstAircraft != null) {
+        // We found one!
+        // We must schedule this *after* the build completes.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Check if the widget is still mounted before moving
+          if (mounted) {
+            print("Auto-centering on first aircraft: ${firstAircraft.icao}");
+            widget.mapController.move(firstAircraft.position!, 10.0);
+          }
+        });
+
+        // Set the flag so this logic never runs again
+        _hasAutoCentered = true;
+      }
+    }
+
+    // --- Build Markers (Unchanged) ---
     final List<Marker> aircraftMarkers = aircraftList
         .where((ac) => ac.hasPosition)
         .map((aircraft) {
@@ -42,7 +77,7 @@ class MapArea extends StatelessWidget {
       );
     }).toList();
 
-    // --- Add Home Marker if set ---
+    // --- Add Home Marker if set (Unchanged) ---
     if (homeLoc != null) {
       aircraftMarkers.add(
         Marker(
@@ -85,11 +120,10 @@ class MapArea extends StatelessWidget {
       );
     }
 
-    // --- Build Polylines (REMOVED) ---
-
+    // --- Main Map Widget (Unchanged) ---
     return Expanded(
       child: FlutterMap(
-        mapController: mapController,
+        mapController: widget.mapController,
         options: MapOptions(
           initialCenter: homeLoc ?? defaultCenter,
           initialZoom: 9.0,
@@ -122,7 +156,6 @@ class MapArea extends StatelessWidget {
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.example.waveadsb',
           ),
-          // Optional: Add range rings around home
           if (homeLoc != null)
             CircleLayer(
               circles: [
@@ -152,6 +185,7 @@ class MapArea extends StatelessWidget {
     );
   }
 
+  // --- Helper methods moved inside the State class (Unchanged) ---
   Widget _buildAircraftMarker(Aircraft aircraft) {
     final heading = aircraft.track ?? 0;
     final color = Colors.cyan[400]!;
@@ -234,6 +268,9 @@ class MapArea extends StatelessWidget {
     );
   }
 
+  // ---
+  // --- FIX 2: Removed the typo '.' before String
+  // ---
   Widget _buildDetailRow(String label, String value, {bool wrap = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
