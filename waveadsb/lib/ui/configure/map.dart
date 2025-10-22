@@ -26,7 +26,35 @@ class ConfigureMapScreen extends StatelessWidget {
                   settings.updateShowFlightPaths(newValue);
                 },
               ),
-              // You can add more map settings here later
+              const Divider(),
+              SwitchListTile(
+                title: const Text('Offline Mode'),
+                subtitle:
+                    const Text('Use downloaded map tiles (if available)'),
+                value: settings.offlineMode,
+                onChanged: (bool newValue) {
+                  settings.updateOfflineMode(newValue);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.download_for_offline),
+                title: const Text('Download Map for Offline Use'),
+                subtitle:
+                    const Text('Download map tiles for the current map view'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.download),
+                  onPressed: () {
+                    // This is a placeholder. Implementing this is very complex
+                    // and requires new packages for tile caching.
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Offline map download not yet implemented.'),
+                        backgroundColor: Colors.blueGrey,
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
           );
         },

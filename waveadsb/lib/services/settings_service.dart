@@ -1,3 +1,4 @@
+// services/settings_service.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart'; // Import LatLng
@@ -27,6 +28,10 @@ class SettingsService with ChangeNotifier {
   static const String _showFlightPathsKey = 'show_flight_paths';
   bool get showFlightPaths => _showFlightPaths;
 
+  bool _offlineMode = false;
+  static const String _offlineModeKey = 'offline_mode';
+  bool get offlineMode => _offlineMode;
+
   // --- Initialization ---
   Future<void> loadSettings() async {
     _prefs = await SharedPreferences.getInstance();
@@ -52,6 +57,7 @@ class SettingsService with ChangeNotifier {
 
     // Load Map Settings
     _showFlightPaths = _prefs.getBool(_showFlightPathsKey) ?? true;
+    _offlineMode = _prefs.getBool(_offlineModeKey) ?? false;
 
     // Notify listeners that all settings are loaded
     notifyListeners();
@@ -108,6 +114,12 @@ class SettingsService with ChangeNotifier {
   Future<void> updateShowFlightPaths(bool newValue) async {
     _showFlightPaths = newValue;
     await _prefs.setBool(_showFlightPathsKey, newValue);
+    notifyListeners();
+  }
+
+  Future<void> updateOfflineMode(bool newValue) async {
+    _offlineMode = newValue;
+    await _prefs.setBool(_offlineModeKey, newValue);
     notifyListeners();
   }
 }
