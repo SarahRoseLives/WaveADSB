@@ -59,7 +59,7 @@ class _MapAreaState extends State<MapArea> {
       }
     }
 
-    // --- Build Markers (Unchanged) ---
+    // --- Build Markers ---
     final List<Marker> aircraftMarkers = aircraftList
         .where((ac) => ac.hasPosition)
         .map((aircraft) {
@@ -77,7 +77,7 @@ class _MapAreaState extends State<MapArea> {
       );
     }).toList();
 
-    // --- Add Home Marker if set (Unchanged) ---
+    // --- Add Home Marker if set ---
     if (homeLoc != null) {
       aircraftMarkers.add(
         Marker(
@@ -86,41 +86,58 @@ class _MapAreaState extends State<MapArea> {
           height: 60,
           alignment: Alignment.center,
           child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.location_pin,
-                  color: Colors.red[400],
-                  size: 30,
-                  shadows: const [Shadow(blurRadius: 2.0, color: Colors.black)],
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.location_pin,
+                color: Colors.red[400],
+                size: 30,
+                shadows: const [Shadow(blurRadius: 2.0, color: Colors.black)],
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(3),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    'HOME',
-                    style: TextStyle(
-                        color: Colors.red[400],
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        shadows: const [
-                          Shadow(
-                              blurRadius: 1.0,
-                              color: Colors.black,
-                              offset: Offset(1, 1))
-                        ]),
-                  ),
+                child: Text(
+                  'HOME',
+                  style: TextStyle(
+                      color: Colors.red[400],
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      shadows: const [
+                        Shadow(
+                            blurRadius: 1.0,
+                            color: Colors.black,
+                            offset: Offset(1, 1))
+                      ]),
                 ),
-              ]),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    // --- Main Map Widget (Unchanged) ---
+    // --- 5. Build Flight Paths (NEW) ---
+    final List<Polyline> flightPaths = [];
+    if (settings.showFlightPaths) {
+      for (final aircraft in aircraftList) {
+        if (aircraft.pathHistory.length > 1) {
+          flightPaths.add(
+            Polyline(
+              points: aircraft.pathHistory,
+              color: Colors.cyan.withOpacity(0.6),
+              strokeWidth: 2.0,
+            ),
+          );
+        }
+      }
+    }
+
+    // --- Main Map Widget ---
     return Expanded(
       child: FlutterMap(
         mapController: widget.mapController,
@@ -177,6 +194,9 @@ class _MapAreaState extends State<MapArea> {
                 ),
               ],
             ),
+          // 6. Add the PolylineLayer (NEW)
+          if (settings.showFlightPaths)
+            PolylineLayer(polylines: flightPaths),
           MarkerLayer(
             markers: aircraftMarkers,
           ),

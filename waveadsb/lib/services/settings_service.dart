@@ -1,4 +1,3 @@
-// services/settings_service.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart'; // Import LatLng
@@ -17,6 +16,16 @@ class SettingsService with ChangeNotifier {
   static const String _homeLatKey = 'home_latitude';
   static const String _homeLonKey = 'home_longitude';
   LatLng? get homeLocation => _homeLocation;
+
+  // --- Screen Settings (FIX) ---
+  bool _showStationLines = false;
+  static const String _showStationLinesKey = 'show_station_lines';
+  bool get showStationLines => _showStationLines;
+
+  // --- Map Settings (NEW) ---
+  bool _showFlightPaths = true;
+  static const String _showFlightPathsKey = 'show_flight_paths';
+  bool get showFlightPaths => _showFlightPaths;
 
   // --- Initialization ---
   Future<void> loadSettings() async {
@@ -37,6 +46,12 @@ class SettingsService with ChangeNotifier {
     } else {
       _homeLocation = null;
     }
+
+    // Load Screen Settings
+    _showStationLines = _prefs.getBool(_showStationLinesKey) ?? false;
+
+    // Load Map Settings
+    _showFlightPaths = _prefs.getBool(_showFlightPathsKey) ?? true;
 
     // Notify listeners that all settings are loaded
     notifyListeners();
@@ -79,6 +94,20 @@ class SettingsService with ChangeNotifier {
       await _prefs.remove(_homeLatKey);
       await _prefs.remove(_homeLonKey);
     }
+    notifyListeners();
+  }
+
+  // --- Screen Settings Method (FIX) ---
+  Future<void> updateShowStationLines(bool newValue) async {
+    _showStationLines = newValue;
+    await _prefs.setBool(_showStationLinesKey, newValue);
+    notifyListeners();
+  }
+
+  // --- Map Settings Method (NEW) ---
+  Future<void> updateShowFlightPaths(bool newValue) async {
+    _showFlightPaths = newValue;
+    await _prefs.setBool(_showFlightPathsKey, newValue);
     notifyListeners();
   }
 }

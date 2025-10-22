@@ -1,4 +1,3 @@
-// models/aircraft.dart
 import 'package:latlong2/latlong.dart';
 
 /// Represents a single aircraft being tracked.
@@ -11,6 +10,9 @@ class Aircraft {
   int? groundSpeed;
   int? track; // Heading in degrees
   DateTime lastUpdated;
+
+  /// A list of recorded positions for this aircraft
+  final List<LatLng> pathHistory = [];
 
   Aircraft(this.icao) : lastUpdated = DateTime.now();
 

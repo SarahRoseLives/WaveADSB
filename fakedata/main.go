@@ -27,12 +27,21 @@ type Aircraft struct {
 	Track       int
 
 	// Internal simulation parameters
-	startLat  float64 // Starting position
+	startLat  float64 // Point A
 	startLon  float64
-	latRate   float64 // How much to change lat per update
-	lonRate   float64 // How much to change lon per update
-	altRate   int
-	callsignSet bool
+	targetLat float64 // Point B
+	targetLon float64
+
+	baseLatRate float64 // Vector for A -> B
+	baseLonRate float64
+	baseTrack   int
+
+	latRate float64 // Current vector
+	lonRate float64
+	altRate int
+
+	flyingToTarget bool // True = A->B, False = B->A
+	callsignSet    bool
 }
 
 // --- Global State ---
@@ -49,8 +58,8 @@ var (
 
 // --- End Global State ---
 
-// newAircraft initializes an aircraft to fly over the target
-func newAircraft(icao, callsign string, startLat, startLon, speedFactor float64, startAlt, altRate, startSpeed int) *Aircraft {
+// newAircraft initializes an aircraft to fly between two points
+func newAircraft(icao, callsign string, startLat, startLon, targetLat, targetLon, speedFactor float64, startAlt, altRate, startSpeed int) *Aircraft {
 	// Calculate the vector from start to target
 	deltaLat := targetLat - startLat
 	deltaLon := targetLon - startLon
@@ -75,12 +84,22 @@ func newAircraft(icao, callsign string, startLat, startLon, speedFactor float64,
 		Altitude:    startAlt,
 		GroundSpeed: startSpeed,
 		Track:       trackDeg,
-		startLat:    startLat,
-		startLon:    startLon,
-		latRate:     latRate,
-		lonRate:     lonRate,
-		altRate:     altRate,
-		callsignSet: false,
+
+		startLat:  startLat,
+		startLon:  startLon,
+		targetLat: targetLat,
+		targetLon: targetLon,
+
+		baseLatRate: latRate,
+		baseLonRate: lonRate,
+		baseTrack:   trackDeg,
+
+		latRate: latRate, // Initially flying A->B
+		lonRate: lonRate,
+		altRate: altRate,
+
+		flyingToTarget: true,
+		callsignSet:    false,
 	}
 }
 
@@ -96,12 +115,32 @@ func (ac *Aircraft) update() {
 		ac.altRate *= -1
 	}
 
-	// If it flies too far past the target (e.g., 1 degree, ~70 miles), reset it
-	// to its starting position to fly over again.
-	if math.Abs(ac.Latitude-ac.startLat) > 1.0 || math.Abs(ac.Longitude-ac.startLon) > 1.0 {
-		ac.Latitude = ac.startLat
-		ac.Longitude = ac.startLon
-		log.Printf("Resetting %s to start position", ac.Callsign)
+	// --- Turnaround Logic ---
+	const arrivalThreshold = 0.01 // ~0.7 miles
+	var dist float64
+
+	if ac.flyingToTarget {
+		// We are flying towards the target (B)
+		dist = math.Sqrt(math.Pow(ac.Latitude-ac.targetLat, 2) + math.Pow(ac.Longitude-ac.targetLon, 2))
+		if dist < arrivalThreshold {
+			// Arrived at target (B), turn around to start (A)
+			ac.flyingToTarget = false
+			ac.latRate = -ac.baseLatRate
+			ac.lonRate = -ac.baseLonRate
+			ac.Track = (ac.baseTrack + 180) % 360
+			log.Printf("Aircraft %s (%s) reached target, turning back to start", ac.Callsign, ac.ICAO)
+		}
+	} else {
+		// We are flying towards the start (A)
+		dist = math.Sqrt(math.Pow(ac.Latitude-ac.startLat, 2) + math.Pow(ac.Longitude-ac.startLon, 2))
+		if dist < arrivalThreshold {
+			// Arrived at start (A), turn around to target (B)
+			ac.flyingToTarget = true
+			ac.latRate = ac.baseLatRate
+			ac.lonRate = ac.baseLonRate
+			ac.Track = ac.baseTrack
+			log.Printf("Aircraft %s (%s) reached start, turning back to target", ac.Callsign, ac.ICAO)
+		}
 	}
 }
 
@@ -209,25 +248,28 @@ func runGlobalSimulation() {
 func main() {
 	port := 30003
 	log.Printf("Starting fake ADS-B (SBS-1) server on port %d...", port)
-	log.Printf("Simulating 3-aircraft fly-over of Ashtabula, OH (%.4f, %.4f)", targetLat, targetLon)
+	log.Printf("Simulating 3-aircraft looping patrol of Ashtabula, OH (%.4f, %.4f)", targetLat, targetLon)
 
 	// Initialize our 3 simulated aircraft
 	globalAircraft = []*Aircraft{
-		// 1. Starts SW, flies NE
+		// 1. Starts SW, flies NE to target, then back
 		newAircraft("A1A1A1", "DAL789",
 			targetLat-0.5, targetLon-0.5, // Start SW
+			targetLat, targetLon, // Target
 			0.0003,  // Slower, more realistic speed factor
 			30000, 2, 450, // startAlt, altRate, groundSpeed
 		),
-		// 2. Starts NW, flies SE
+		// 2. Starts NW, flies SE to target, then back
 		newAircraft("B2B2B2", "AAL123",
 			targetLat+0.5, targetLon-0.5, // Start NW
+			targetLat, targetLon, // Target
 			0.00035, // speedFactor
 			35000, -1, 500, // startAlt, altRate, groundSpeed
 		),
-		// 3. Starts S, flies N
+		// 3. Starts S, flies N to target, then back
 		newAircraft("C3C3C3", "SWA456",
 			targetLat-0.5, targetLon+0.1, // Start S/SE
+			targetLat, targetLon, // Target
 			0.00028, // speedFactor
 			28000, 1, 420, // startAlt, altRate, groundSpeed
 		),
@@ -255,4 +297,3 @@ func main() {
 		go handleConnection(conn)
 	}
 }
-

@@ -1,7 +1,9 @@
 // ui/home/topbar.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:waveadsb/ui/configure/ports.dart';
+import 'package:waveadsb/ui/about/about.dart'; // 1. IMPORT NEW ABOUT SCREEN
+import 'package:waveadsb/ui/configure/feeds.dart';
+import 'package:waveadsb/ui/configure/map.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
   const TopBar({super.key});
@@ -25,6 +27,13 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                   builder: (context) => const ConfigurePortsScreen(),
                 ),
               );
+            } else if (value == 'map') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ConfigureMapScreen(),
+                ),
+              );
             }
           },
           color: const Color(0xFF2D2D2D),
@@ -39,6 +48,10 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
               value: 'ports',
               text: 'Feeds', // Renamed from 'Ports'
             ),
+            _buildPopupMenuItem(
+              value: 'map',
+              text: 'Map',
+            ),
             // "Station Setup" (REMOVED)
           ],
           child: const Padding(
@@ -52,7 +65,18 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
 
         // --- Screen Menu (REMOVED) ---
 
-        _menuButton('About'),
+        // 2. UPDATE 'About' BUTTON TO NAVIGATE
+        _menuButton(
+          'About',
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AboutScreen(),
+              ),
+            );
+          },
+        ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.0),
           child: Icon(Icons.exit_to_app), // This likely does nothing, but leaving it
@@ -61,12 +85,10 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  // Helper widgets
-  Widget _menuButton(String title) {
+  // 3. UPDATE HELPER TO ACCEPT A CALLBACK
+  Widget _menuButton(String title, VoidCallback onPressed) {
     return TextButton(
-      onPressed: () {
-        // TODO: Implement About Dialog
-      },
+      onPressed: onPressed, // Use the passed callback
       child: Text(
         title,
         style: const TextStyle(color: Colors.white),

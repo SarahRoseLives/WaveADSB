@@ -1,4 +1,4 @@
-// ui/configure/ports.dart
+// ui/configure/feeds.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:waveadsb/models/port_config.dart';

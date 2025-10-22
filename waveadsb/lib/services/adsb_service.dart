@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
+import 'package:latlong2/latlong.dart'; // 1. IMPORT LATLNG
 import 'package:waveadsb/models/aircraft.dart';
 import 'package:waveadsb/models/port_config.dart';
 import 'package:waveadsb/services/settings_service.dart';
@@ -178,10 +179,23 @@ class AdsbService with ChangeNotifier {
           if (parts.length >= 16 &&
               parts[14].isNotEmpty &&
               parts[15].isNotEmpty) {
-            aircraft.altitude = int.tryParse(parts[11]);
-            aircraft.latitude = double.tryParse(parts[14]);
-            aircraft.longitude = double.tryParse(parts[15]);
-            updated = true;
+            // 2. Parse lat/lon
+            final lat = double.tryParse(parts[14]);
+            final lon = double.tryParse(parts[15]);
+
+            if (lat != null && lon != null) {
+              aircraft.altitude = int.tryParse(parts[11]);
+              aircraft.latitude = lat;
+              aircraft.longitude = lon;
+
+              // 3. Add to path history
+              final newPos = LatLng(lat, lon);
+              if (aircraft.pathHistory.isEmpty ||
+                  aircraft.pathHistory.last != newPos) {
+                aircraft.pathHistory.add(newPos);
+              }
+              updated = true;
+            }
           }
           break;
         case '4': // Airborne Velocity
@@ -193,7 +207,7 @@ class AdsbService with ChangeNotifier {
             updated = true;
           }
           break;
-      // Other MSG types (2, 5, 6, 7, 8) are ignored for this example
+        // Other MSG types (2, 5, 6, 7, 8) are ignored for this example
       }
 
       if (updated) {
