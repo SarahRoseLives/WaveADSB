@@ -8,6 +8,8 @@ import 'package:waveadsb/services/adsb_service.dart';
 import 'package:waveadsb/services/settings_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math; // For marker rotation
+// 1. IMPORT TILE CACHING
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 // Define a default center point
 const LatLng defaultCenter =
@@ -24,6 +26,15 @@ class MapArea extends StatefulWidget {
 class _MapAreaState extends State<MapArea> {
   bool _hasAutoCentered = false;
 
+  // REMOVED: TileProvider is now created inside build
+
+  @override
+  void initState() {
+    super.initState();
+    // REMOVED: Initialization moved to build
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsService>();
@@ -31,35 +42,24 @@ class _MapAreaState extends State<MapArea> {
     final aircraftList = adsbService.aircraft;
     final homeLoc = settings.homeLocation;
 
-    // --- 4. Auto-center logic ---
+    // --- 4. Auto-center logic (Unchanged) ---
     if (!_hasAutoCentered && aircraftList.isNotEmpty) {
-
-      // ---
-      // --- FIX 1: This is the correct way to get "first or null"
-      // ---
-      // 1. Filter the list for aircraft that have a position
       final aircraftWithPosition = aircraftList.where((ac) => ac.hasPosition);
-      // 2. Check if the filtered list is empty. If not, get the first one.
       final Aircraft? firstAircraft =
           aircraftWithPosition.isEmpty ? null : aircraftWithPosition.first;
 
       if (firstAircraft != null) {
-        // We found one!
-        // We must schedule this *after* the build completes.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          // Check if the widget is still mounted before moving
           if (mounted) {
             print("Auto-centering on first aircraft: ${firstAircraft.icao}");
             widget.mapController.move(firstAircraft.position!, 10.0);
           }
         });
-
-        // Set the flag so this logic never runs again
         _hasAutoCentered = true;
       }
     }
 
-    // --- Build Markers ---
+    // --- Build Markers (Unchanged) ---
     final List<Marker> aircraftMarkers = aircraftList
         .where((ac) => ac.hasPosition)
         .map((aircraft) {
@@ -77,7 +77,7 @@ class _MapAreaState extends State<MapArea> {
       );
     }).toList();
 
-    // --- Add Home Marker if set ---
+    // --- Add Home Marker if set (Unchanged) ---
     if (homeLoc != null) {
       aircraftMarkers.add(
         Marker(
@@ -86,42 +86,41 @@ class _MapAreaState extends State<MapArea> {
           height: 60,
           alignment: Alignment.center,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.location_pin,
-                color: Colors.red[400],
-                size: 30,
-                shadows: const [Shadow(blurRadius: 2.0, color: Colors.black)],
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(3),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.location_pin,
+                  color: Colors.red[400],
+                  size: 30,
+                  shadows: const [Shadow(blurRadius: 2.0, color: Colors.black)],
                 ),
-                child: Text(
-                  'HOME',
-                  style: TextStyle(
-                      color: Colors.red[400],
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      shadows: const [
-                        Shadow(
-                            blurRadius: 1.0,
-                            color: Colors.black,
-                            offset: Offset(1, 1))
-                      ]),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    'HOME',
+                    style: TextStyle(
+                        color: Colors.red[400],
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        shadows: const [
+                          Shadow(
+                              blurRadius: 1.0,
+                              color: Colors.black,
+                              offset: Offset(1, 1))
+                        ]),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ]),
         ),
       );
     }
 
-    // --- 5. Build Flight Paths (NEW) ---
+    // --- 5. Build Flight Paths (Unchanged) ---
     final List<Polyline> flightPaths = [];
     if (settings.showFlightPaths) {
       for (final aircraft in aircraftList) {
@@ -136,6 +135,16 @@ class _MapAreaState extends State<MapArea> {
         }
       }
     }
+
+    // --- FIX: Create TileProvider inside build ---
+    final tileProvider = FMTCTileProvider.allStores(
+        // FIX: Use a valid BrowseStoreStrategy
+        allStoresStrategy: BrowseStoreStrategy.readUpdateCreate, // Use readUpdateCreate or similar
+        loadingStrategy: settings.offlineMode
+            ? BrowseLoadingStrategy.cacheOnly
+            : BrowseLoadingStrategy.cacheFirst,
+    );
+
 
     // --- Main Map Widget ---
     return Expanded(
@@ -172,6 +181,10 @@ class _MapAreaState extends State<MapArea> {
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.example.waveadsb',
+            // Use the TileProvider created above
+            tileProvider: tileProvider,
+            // Pass TileLayer options needed by toDownloadable if creating region inside build
+            // options: TileLayerOptions(...), // Example if needed later
           ),
           if (homeLoc != null)
             CircleLayer(
@@ -194,7 +207,7 @@ class _MapAreaState extends State<MapArea> {
                 ),
               ],
             ),
-          // 6. Add the PolylineLayer (NEW)
+          // 6. Add the PolylineLayer (Unchanged)
           if (settings.showFlightPaths)
             PolylineLayer(polylines: flightPaths),
           MarkerLayer(
@@ -205,7 +218,7 @@ class _MapAreaState extends State<MapArea> {
     );
   }
 
-  // --- Helper methods moved inside the State class (Unchanged) ---
+  // --- Helper methods (all unchanged) ---
   Widget _buildAircraftMarker(Aircraft aircraft) {
     final heading = aircraft.track ?? 0;
     final color = Colors.cyan[400]!;
@@ -288,9 +301,6 @@ class _MapAreaState extends State<MapArea> {
     );
   }
 
-  // ---
-  // --- FIX 2: Removed the typo '.' before String
-  // ---
   Widget _buildDetailRow(String label, String value, {bool wrap = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),

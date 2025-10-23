@@ -1,12 +1,21 @@
 // main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:waveadsb/services/adsb_service.dart'; // Import NEW service
+import 'package:waveadsb/services/adsb_service.dart';
 import 'package:waveadsb/services/settings_service.dart';
 import 'package:waveadsb/ui/home/home_screen.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart'; // 1. IMPORT
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 2. INITIALIZE THE TILE CACHE DATABASE
+  try {
+    await FMTCObjectBoxBackend().initialise();
+  } catch (e) {
+    print("Failed to initialize tile cache: $e");
+    // Handle error as needed
+  }
 
   final settingsService = SettingsService();
   await settingsService.loadSettings();
@@ -15,6 +24,7 @@ void main() async {
     MultiProvider(
       providers: [
         // The SettingsService provider
+        // FIX: Corrected typo 'ChangeNodeNotifierProvider'
         ChangeNotifierProvider(
           create: (context) => settingsService,
         ),
