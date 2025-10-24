@@ -1,7 +1,8 @@
 // ui/home/topbar.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // 1. IMPORT services
 import 'package:provider/provider.dart';
-import 'package:waveadsb/ui/about/about.dart'; // 1. IMPORT NEW ABOUT SCREEN
+import 'package:waveadsb/ui/about/about.dart';
 import 'package:waveadsb/ui/configure/feeds.dart';
 import 'package:waveadsb/ui/configure/map.dart';
 
@@ -13,11 +14,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       title: const Text('WaveADSB'),
       actions: [
-        // --- Transmit Button (REMOVED) ---
-
-        // --- Messages Button (REMOVED) ---
-
-        // --- Configure Menu (Updated) ---
+        // --- Configure Menu (Unchanged) ---
         PopupMenuButton<String>(
           onSelected: (String value) {
             if (value == 'ports') {
@@ -46,13 +43,12 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
           itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
             _buildPopupMenuItem(
               value: 'ports',
-              text: 'Feeds', // Renamed from 'Ports'
+              text: 'Feeds',
             ),
             _buildPopupMenuItem(
               value: 'map',
               text: 'Map',
             ),
-            // "Station Setup" (REMOVED)
           ],
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8.0),
@@ -63,9 +59,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ),
 
-        // --- Screen Menu (REMOVED) ---
-
-        // 2. UPDATE 'About' BUTTON TO NAVIGATE
+        // --- About Button (Unchanged) ---
         _menuButton(
           'About',
           () {
@@ -77,18 +71,28 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
             );
           },
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0),
-          child: Icon(Icons.exit_to_app), // This likely does nothing, but leaving it
+
+        // --- Exit Button ---
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0), // Reduced padding slightly
+          child: IconButton( // 2. WRAP Icon with IconButton
+            icon: const Icon(Icons.exit_to_app),
+            tooltip: 'Exit Application',
+            onPressed: () {
+              // 3. CALL SystemNavigator.pop() to close the app
+              SystemNavigator.pop();
+            },
+          ),
         ),
+        const SizedBox(width: 8), // Add a little space at the end
       ],
     );
   }
 
-  // 3. UPDATE HELPER TO ACCEPT A CALLBACK
+  // Helper widgets (Unchanged)
   Widget _menuButton(String title, VoidCallback onPressed) {
     return TextButton(
-      onPressed: onPressed, // Use the passed callback
+      onPressed: onPressed,
       child: Text(
         title,
         style: const TextStyle(color: Colors.white),
