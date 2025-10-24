@@ -8,7 +8,6 @@ import 'package:waveadsb/services/adsb_service.dart';
 import 'package:waveadsb/services/settings_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math; // For marker rotation
-// 1. IMPORT TILE CACHING
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 
 // Define a default center point
@@ -26,12 +25,9 @@ class MapArea extends StatefulWidget {
 class _MapAreaState extends State<MapArea> {
   bool _hasAutoCentered = false;
 
-  // REMOVED: TileProvider is now created inside build
-
   @override
   void initState() {
     super.initState();
-    // REMOVED: Initialization moved to build
   }
 
 
@@ -42,7 +38,7 @@ class _MapAreaState extends State<MapArea> {
     final aircraftList = adsbService.aircraft;
     final homeLoc = settings.homeLocation;
 
-    // --- 4. Auto-center logic (Unchanged) ---
+    // --- Auto-center logic (Unchanged) ---
     if (!_hasAutoCentered && aircraftList.isNotEmpty) {
       final aircraftWithPosition = aircraftList.where((ac) => ac.hasPosition);
       final Aircraft? firstAircraft =
@@ -59,28 +55,10 @@ class _MapAreaState extends State<MapArea> {
       }
     }
 
-    // --- Build Markers (Unchanged) ---
-    final List<Marker> aircraftMarkers = aircraftList
-        .where((ac) => ac.hasPosition)
-        .map((aircraft) {
-      return Marker(
-        point: aircraft.position!,
-        width: 80,
-        height: 60,
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () {
-            _showAircraftDetailsDialog(context, aircraft);
-          },
-          child: _buildAircraftMarker(aircraft),
-        ),
-      );
-    }).toList();
-
-    // --- Add Home Marker if set (Unchanged) ---
+    // --- Build Home Marker (Moved Earlier) ---
+    Marker? homeMarker; // Make it nullable
     if (homeLoc != null) {
-      aircraftMarkers.add(
-        Marker(
+      homeMarker = Marker(
           point: homeLoc,
           width: 80,
           height: 60,
@@ -116,12 +94,37 @@ class _MapAreaState extends State<MapArea> {
                   ),
                 ),
               ]),
-        ),
-      );
+        );
     }
 
-    // --- 5. Build Flight Paths (Unchanged) ---
-    final List<Polyline> flightPaths = [];
+    // --- Build Aircraft Markers ---
+    final List<Marker> aircraftMarkers = aircraftList
+        .where((ac) => ac.hasPosition)
+        .map((aircraft) {
+      return Marker(
+        point: aircraft.position!,
+        width: 80,
+        height: 60,
+        alignment: Alignment.center,
+        child: GestureDetector(
+          onTap: () {
+            _showAircraftDetailsDialog(context, aircraft);
+          },
+          child: _buildAircraftMarker(aircraft),
+        ),
+      );
+    }).toList();
+
+    // --- Combine Markers (Home First) ---
+    final List<Marker> allMarkers = [];
+    if (homeMarker != null) {
+      allMarkers.add(homeMarker); // Add home marker first
+    }
+    allMarkers.addAll(aircraftMarkers); // Add aircraft markers after
+
+
+    // --- Build Flight Paths (Unchanged) ---
+     final List<Polyline> flightPaths = [];
     if (settings.showFlightPaths) {
       for (final aircraft in aircraftList) {
         if (aircraft.pathHistory.length > 1) {
@@ -136,10 +139,9 @@ class _MapAreaState extends State<MapArea> {
       }
     }
 
-    // --- FIX: Create TileProvider inside build ---
+    // --- Create TileProvider ---
     final tileProvider = FMTCTileProvider.allStores(
-        // FIX: Use a valid BrowseStoreStrategy
-        allStoresStrategy: BrowseStoreStrategy.readUpdateCreate, // Use readUpdateCreate or similar
+        allStoresStrategy: BrowseStoreStrategy.readUpdateCreate,
         loadingStrategy: settings.offlineMode
             ? BrowseLoadingStrategy.cacheOnly
             : BrowseLoadingStrategy.cacheFirst,
@@ -156,6 +158,9 @@ class _MapAreaState extends State<MapArea> {
           interactionOptions: const InteractionOptions(
             flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
           ),
+          onMapEvent: (event) {
+             // Optional: print("Map Event: ${event.runtimeType}");
+          },
           onSecondaryTap: (tapPosition, latLng) {
             settings.updateHomeLocation(latLng);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -181,12 +186,12 @@ class _MapAreaState extends State<MapArea> {
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.example.waveadsb',
-            // Use the TileProvider created above
             tileProvider: tileProvider,
-            // Pass TileLayer options needed by toDownloadable if creating region inside build
-            // options: TileLayerOptions(...), // Example if needed later
+            errorTileCallback: (tile, error, stackTrace) {
+              print('Error loading tile ${tile.coordinates}: $error');
+            },
           ),
-          if (homeLoc != null)
+          if (homeLoc != null) // Keep range rings if needed
             CircleLayer(
               circles: [
                 CircleMarker(
@@ -207,11 +212,10 @@ class _MapAreaState extends State<MapArea> {
                 ),
               ],
             ),
-          // 6. Add the PolylineLayer (Unchanged)
           if (settings.showFlightPaths)
             PolylineLayer(polylines: flightPaths),
           MarkerLayer(
-            markers: aircraftMarkers,
+            markers: allMarkers, // Use the combined list
           ),
         ],
       ),
