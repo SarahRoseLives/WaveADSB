@@ -12,9 +12,21 @@ void main() async {
   // 2. INITIALIZE THE TILE CACHE DATABASE
   try {
     await FMTCObjectBoxBackend().initialise();
-  } catch (e) {
-    print("Failed to initialize tile cache: $e");
-    // Handle error as needed
+
+    // *** ADD: Ensure the 'default' store exists ***
+    const String defaultStoreName = 'default';
+    final store = FMTCStore(defaultStoreName);
+    if (!(await store.manage.ready)) {
+       print('Creating cache store: $defaultStoreName');
+       await store.manage.create(); // Create it if it doesn't exist
+    } else {
+       print('Cache store "$defaultStoreName" already exists.');
+    }
+    // *******************************************
+
+  } catch (e, s) { // Catch stack trace
+    print("Failed to initialize/create tile cache: $e\n$s"); // Log stack trace
+    // Optionally show an error to the user or handle differently
   }
 
   final settingsService = SettingsService();
@@ -23,19 +35,11 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        // The SettingsService provider
-        // FIX: Corrected typo 'ChangeNodeNotifierProvider'
         ChangeNotifierProvider(
           create: (context) => settingsService,
         ),
-
-        // The new AdsbService provider
-        // It's a "Proxy" because it depends on the SettingsService
         ChangeNotifierProxyProvider<SettingsService, AdsbService>(
-          // It creates the AdsbService, passing the SettingsService to it
           create: (context) => AdsbService(settingsService),
-
-          // This handles if settings are updated
           update: (context, settings, previousAdsb) =>
               previousAdsb!..updateSettings(settings),
         ),
