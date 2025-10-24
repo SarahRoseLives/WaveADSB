@@ -6,7 +6,7 @@ WaveADSB is a simple, lightweight graphical map viewer for real-time ADS-B (Auto
 
 ![WaveADSB](waveadsb.png)
 
-Download a binary at https://sarahsforge.dev/products/waveadsb
+Download a linux binary at https://sarahsforge.dev/products/waveadsb-linux-
 
 ## Features
 
