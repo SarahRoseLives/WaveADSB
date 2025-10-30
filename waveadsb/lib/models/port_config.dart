@@ -1,8 +1,24 @@
 // models/port_config.dart
 import 'dart:convert';
 
-// We'll rename this to be more generic
-enum PortType { sbsFeed_TCP }
+// 1. RENAME ENUM
+enum PortType {
+  sbsFeed_TCP,
+  acarsdec_JSON_UDP_Listen, // Changed from TCP to UDP
+}
+
+// 2. Helper extension for user-friendly names (optional but nice)
+extension PortTypeExtension on PortType {
+  String get friendlyName {
+    switch (this) {
+      case PortType.sbsFeed_TCP:
+        return 'ADS-B (SBS-1 TCP Client)';
+      // 3. UPDATE TEXT
+      case PortType.acarsdec_JSON_UDP_Listen:
+        return 'ACARS (acarsdec JSON UDP Listener)';
+    }
+  }
+}
 
 class PortConfig {
   final String name;
@@ -36,10 +52,10 @@ class PortConfig {
       // Convert string back to enum
       type: PortType.values.firstWhere(
         (e) => e.name == map['type'],
-        orElse: () => PortType.sbsFeed_TCP, // Updated default
+        orElse: () => PortType.sbsFeed_TCP, // 4. Keep default
       ),
       host: map['host'] ?? '127.0.0.1',
-      port: map['port'] ?? 30003, // Updated default
+      port: map['port'] ?? 30003,
     );
   }
 

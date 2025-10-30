@@ -3,17 +3,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:provider/provider.dart';
 import 'package:waveadsb/models/aircraft.dart';
+import 'package:waveadsb/models/message.dart'; // 1. IMPORT MESSAGE
 import 'package:waveadsb/services/adsb_service.dart';
+import 'package:intl/intl.dart'; // 2. IMPORT INTL FOR DATE FORMATTING
 
-class LeftSidebar extends StatelessWidget {
+// 3. CONVERT TO STATEFULWIDGET
+class LeftSidebar extends StatefulWidget {
   final MapController mapController;
   const LeftSidebar({required this.mapController, super.key});
+
+  @override
+  State<LeftSidebar> createState() => _LeftSidebarState();
+}
+
+// 4. ADD SingleTickerProviderStateMixin
+class _LeftSidebarState extends State<LeftSidebar>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final DateFormat _timeFormat =
+      DateFormat('HH:mm:ss'); // 5. For ACARS timestamp
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this); // 6. Init controller
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     // Consume the new AdsbService
     final adsbService = context.watch<AdsbService>();
     final aircraftList = adsbService.aircraft;
+    final acarsMessages =
+        adsbService.acarsMessages.reversed.toList(); // 7. GET MESSAGES
     final status = adsbService.status;
 
     return Container(
@@ -28,37 +56,60 @@ class LeftSidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  status,
-                  style: TextStyle(
-                    color: status.startsWith('Connected')
-                        ? Colors.green[400]
-                        : Colors.yellow[400],
-                    fontSize: 16,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tracking: ${aircraftList.length}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 14),
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 0),
+            child: Text(
+              status,
+              style: TextStyle(
+                color: status.startsWith('Connected') ||
+                        status.startsWith('Listening')
+                    ? Colors.green[400]
+                    : Colors.yellow[400],
+                fontSize: 16,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+          // 8. ADD TABBAR
+          TabBar(
+            controller: _tabController,
+            indicatorColor: Colors.cyanAccent,
+            labelColor: Colors.cyanAccent,
+            unselectedLabelColor: Colors.grey,
+            tabs: [
+              Tab(
+                child: Text('Aircraft (${aircraftList.length})',
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              Tab(
+                child: Text('ACARS (${acarsMessages.length})',
+                    style: const TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
           const Divider(height: 1),
+          // 9. ADD TABBARVIEW
           Expanded(
-            child: ListView.builder(
-              itemCount: aircraftList.length,
-              itemBuilder: (context, index) {
-                final aircraft = aircraftList[index];
-                // Pass the aircraft data to the tile builder
-                return _buildAircraftTile(aircraft);
-              },
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // --- AIRCRAFT LIST (Child 1) ---
+                ListView.builder(
+                  itemCount: aircraftList.length,
+                  itemBuilder: (context, index) {
+                    final aircraft = aircraftList[index];
+                    // Pass the aircraft data to the tile builder
+                    return _buildAircraftTile(aircraft);
+                  },
+                ),
+                // --- ACARS MESSAGE LIST (Child 2) ---
+                ListView.builder(
+                  itemCount: acarsMessages.length,
+                  itemBuilder: (context, index) {
+                    final message = acarsMessages[index];
+                    return _buildAcarsMessageTile(message);
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -76,9 +127,11 @@ class LeftSidebar extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (aircraft.position != null) {
-            mapController.move(
+            widget.mapController.move(
               aircraft.position!,
-              mapController.camera.zoom > 10 ? mapController.camera.zoom : 10.0,
+              widget.mapController.camera.zoom > 10
+                  ? widget.mapController.camera.zoom
+                  : 10.0,
             );
           }
         },
@@ -119,6 +172,54 @@ class LeftSidebar extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // 10. NEW TILE BUILDER FOR ACARS MESSAGES
+  Widget _buildAcarsMessageTile(Message message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.black.withOpacity(0.3), width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                message.callsign,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              Text(
+                _timeFormat.format(message.timestamp.toLocal()),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            message.text,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 12,
+              fontFamily: 'monospace', // Good for ACARS text
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
